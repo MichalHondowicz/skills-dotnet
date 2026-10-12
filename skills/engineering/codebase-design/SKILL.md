@@ -62,7 +62,7 @@ When designing an interface, ask:
 - **Depth is a property of the interface, not the implementation.** A deep module can be internally composed of small, mockable, swappable parts; they just aren't part of the interface. A module can have **internal seams** (private to its implementation, used by its own tests) as well as the **external seam** at its interface.
 - **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
 - **The interface is the test surface.** Callers and tests cross the same seam. If you want to test *past* the interface, the module is probably the wrong shape.
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a seam unless something actually varies across it.
+- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a seam unless something actually varies across it. The exception is a seam a layer rule forces: in a layered .NET solution, `Application` declares an `interface` because it may not reference `Infrastructure`, so that seam is real with one adapter. The project's ADR names which seams those are; where it does, follow it.
 
 ## Designing for testability
 
@@ -70,25 +70,34 @@ Good interfaces make testing natural:
 
 1. **Accept dependencies, don't create them.**
 
-   ```typescript
+   ```csharp
    // Testable
-   function processOrder(order, paymentGateway) {}
+   public sealed class OrderProcessor(IPaymentGateway paymentGateway)
+   {
+       public Task ProcessAsync(Order order) { /* ... */ }
+   }
 
    // Hard to test
-   function processOrder(order) {
-     const gateway = new StripeGateway();
+   public sealed class OrderProcessor
+   {
+       public Task ProcessAsync(Order order)
+       {
+           var gateway = new StripeGateway();
+           /* ... */
+       }
    }
    ```
 
 2. **Return results, don't produce side effects.**
 
-   ```typescript
+   ```csharp
    // Testable
-   function calculateDiscount(cart): Discount {}
+   public static Discount CalculateDiscount(Cart cart) { /* ... */ }
 
    // Hard to test
-   function applyDiscount(cart): void {
-     cart.total -= discount;
+   public static void ApplyDiscount(Cart cart)
+   {
+       cart.Total -= discount;
    }
    ```
 
@@ -105,7 +114,7 @@ Good interfaces make testing natural:
 ## Rejected framings
 
 - **Depth as ratio of implementation-lines to interface-lines** (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.
-- **"Interface" as the TypeScript `interface` keyword or a class's public methods**: too narrow: interface here includes every fact a caller must know.
+- **"Interface" as the C# or TypeScript `interface` keyword or a class's public methods**: too narrow: interface here includes every fact a caller must know. A class with no `interface` still has one, and an `interface` declaration covers only its type-level part.
 - **"Boundary"**: overloaded with DDD's bounded context. Say **seam** or **interface**.
 
 ## Going deeper
