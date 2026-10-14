@@ -62,7 +62,7 @@ Not built in. It commits straight to the current branch. Several people find thi
 
 **`code-review` says it cannot see my changes.**
 
-`code-review` reviews `git diff <fixed-point>...HEAD`, which excludes staged and working-tree changes. `implement` runs it before committing, so unless an interim commit already exists there is nothing in that diff to review. Multiple people have reported this and it is unfixed on both sides. Commit first, then review against the point you branched from.
+`implement` runs the review before committing, so the work lives in the working tree. `code-review` handles that: when `git status` shows changes that belong to the work, it diffs the working tree against the fixed point after marking new files with `git add -N`. If the review still reports an empty diff, check that it ran as `mattpocock-skills:code-review`, because Claude Code's built-in `code-review` is a different skill.
 
 Separately, some people do not want the review inside the run at all, because an agent reviewing the code it just wrote is biased toward its own solution. Running [code-review](https://aihero.dev/skills-code-review) in a fresh session against a fixed point is a valid alternative. The same bias is why that skill runs its two axes in separate sub-agents.
 
