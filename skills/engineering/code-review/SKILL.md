@@ -20,6 +20,8 @@ Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main
 
 Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
 
+Work not yet committed is reviewed too, since `implement` reviews before it commits. When `git status --porcelain` lists changes that belong to the work, capture `git diff <fixed-point>` instead (the working tree against the fixed point). First run `git add -N <path>` on each new file of the work, because a diff never shows an untracked file; leave untracked paths that are not part of the work alone.
+
 Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here, not inside two parallel sub-agents.
 
 ### 2. Identify the spec source

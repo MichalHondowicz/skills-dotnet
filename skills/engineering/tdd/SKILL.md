@@ -34,5 +34,6 @@ When the shape of that interface is itself in question (how deep the module is, 
 ## Rules of the loop
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
+- **Red is a failing test, not a failing build.** Where warnings are errors (an unused constructor parameter, a possible null dereference), a test that calls code not written yet stops at the compiler, and a build error proves nothing about behaviour. Start the cycle at a seam that compiles without the new code, such as a test over HTTP, or give the new code the smallest stub that compiles, then watch the assertion fail.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 - **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.

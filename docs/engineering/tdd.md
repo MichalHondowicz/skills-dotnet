@@ -58,6 +58,10 @@ This is the most-reported friction with the skill ([issue #607](https://github.c
 
 It happens. One user pushed the [model](https://www.aihero.dev/ai-coding-dictionary/model) on it and got an unusually honest answer: "I knew the skill said 'one test at a time, watch it fail for the right reason'. I read it. I just defaulted to my normal habit." The skill accepts this. No instruction makes an agent comply 100% of the time, and stricter wording restricts the agent's creativity for little gain. The loop is worth running even when the agent does not follow it strictly, because the results are still better overall. If strict adherence matters for a particular slice, watch the run rather than trusting the skill to enforce it.
 
+**My test doesn't compile yet. Is that the red?**
+
+No. A build error says the code is missing, not that the behaviour is wrong, and where warnings are treated as errors even a stub can fail to compile (an unused constructor parameter is enough). The loop wants its red from an assertion. Start at a seam that compiles without the new code, such as a test over HTTP, or add the smallest stub that compiles first.
+
 **Should it write browser or end-to-end tests first?**
 
 Usually not, and the skill will not stop it. A user reported the agent writing a Playwright test first, then spending a long loop re-running it and concluding the *test* was broken for a feature that did not exist yet. Browser tests are slow enough that the red-green feedback loop stops paying for itself. State in your repo's `CLAUDE.md` that browser tests come after the behaviour works.

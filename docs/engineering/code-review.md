@@ -78,7 +78,7 @@ Each fix adds new code to review, and the judgement-call half of the Standards a
 
 **Does it review my uncommitted work?**
 
-No. It diffs `<fixed-point>...HEAD`. The three-dot form measures from the merge-base and excludes staged and working-tree changes. If `implement` has not made an interim commit, the review cannot see the work that is about to go into the next commit. Commit first, then review, then amend or add a fixup.
+Yes. [implement](https://aihero.dev/skills-implement) reviews before it commits, so the work often lives only in the working tree. When `git status` shows changes that belong to the work, the skill diffs the working tree against the fixed point (`git diff <fixed-point>`) instead of `<fixed-point>...HEAD`. It first marks each new file of the work with `git add -N`, because a diff never shows an untracked file. With nothing uncommitted it keeps the three-dot form, which measures from the merge-base.
 
 ## It's working if
 
