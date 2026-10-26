@@ -43,7 +43,7 @@ Read every ticket in `.scratch/<feature>/issues/` and pick the next one:
 
 For the picked ticket:
 
-1. Set `**Status:** in-progress` and commit only that change (`ship: start <NN>`). That commit is the ticket's **base**.
+1. Set `**Status:** in-progress` and commit only that change (`ship: start <NN>`). That commit is the ticket's **base**. A ticket that is already `in-progress` keeps its base: the `ship: start <NN>` commit on the branch (`git log --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
 2. Dispatch the implementer subagent named by `implementerAgent`, in the foreground. Pass pointers, never copies: the ticket path, the worktree path, the branch, `round 1`, and the contract `docs/agents/implementer-contract.md`.
 3. When it returns, read the first line of its final message and look at the worktree.
    - `STATUS: done`, commits after the base, and `run-dod.ps1 -Check commands` green: the ticket is **done**. If the worktree is not clean, stash the leftovers first (`git stash push --include-untracked -m "ship: <NN> leftovers"`) and say so in the ticket. Set `**Status:** done`, tick the criteria that its `## Comments` entry proves, and commit (`ship: <NN> done`).
