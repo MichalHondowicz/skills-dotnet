@@ -21,13 +21,14 @@ If `dod.json` or `run-dod.ps1` is missing, the project is not set up for unatten
 
 ## Start or resume
 
-Starting and resuming are the same steps. The tracker is the only state: keep no progress anywhere else.
+Starting and resuming are the same steps. The tracker is the only state: keep no progress anywhere else. Run the session in auto mode, never with permission checks bypassed: the hooks and the allowlist are the guard rails, not your judgement.
 
 1. **Stay awake.** If the app offers a keep-awake tool, hold the computer awake until the session goes idle.
 2. **Enter the feature's worktree.** The feature is built on branch `feat/<feature>` in the worktree `.claude/worktrees/<feature>`, never in the user's checkout.
    - Already in that worktree: go on.
    - `git worktree list` shows it: switch the session into it with the EnterWorktree tool, passing `path`.
    - Otherwise the feature's tickets must be committed, because a new worktree only has what HEAD has: if `git status --porcelain -- .scratch/<feature>` prints anything, stop and say so. Create the worktree from the current HEAD with `git worktree add .claude/worktrees/<feature> -b feat/<feature>` (drop `-b` when the branch already exists), then switch into it with EnterWorktree, passing `path`.
+   - In the worktree, uncommitted changes with no ticket `in-progress` are leftovers of a stopped run: stash them (`git stash push --include-untracked -m "ship: leftovers"`) and name the stash in your final report. With a ticket `in-progress` they are its work: leave them for the implementer.
 3. **Check the environment** with `run-dod.ps1 -Check environment`.
 4. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
 
@@ -43,17 +44,17 @@ Read every ticket in `.scratch/<feature>/issues/` and pick the next one:
 
 For the picked ticket:
 
-1. Set `**Status:** in-progress` and commit only that change (`ship: start <NN>`). That commit is the ticket's **base**. A ticket that is already `in-progress` keeps its base: the `ship: start <NN>` commit on the branch (`git log --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
+1. Set `**Status:** in-progress` and commit only that change (`ship: start <NN>`). That commit is the ticket's **base**. A ticket that is already `in-progress` keeps its base: the latest `ship: start <NN>` commit on the branch (`git log -1 --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
 2. Dispatch the implementer subagent named by `implementerAgent` and wait for its report, doing nothing else meanwhile (where the harness runs subagents in the background, that means waiting for its completion notice). Pass pointers, never copies: the ticket path, the worktree path, the branch, `round 1`, and the contract `docs/agents/implementer-contract.md`.
 3. When it reports, read the first line of its final message and look at the worktree. `run-dod.ps1 -Check commands` waits while the DoD gate is still testing the implementer's stop, so the two runs never collide. If that check is red right after a `STATUS: done` and the implementer is still running, the gate has sent it back to work: wait for its next report instead of judging the ticket.
    - `STATUS: done`, commits after the base, and `run-dod.ps1 -Check commands` green: the ticket is **done**. If the worktree is not clean, stash the leftovers first (`git stash push --include-untracked -m "ship: <NN> leftovers"`) and say so in the ticket. Set `**Status:** done`, tick the criteria that its `## Comments` entry proves, and commit (`ship: <NN> done`).
-   - Anything else is **stuck**: `STATUS: stuck`, a missing status line, no commits after the base, or a red DoD. Put the branch back to green without losing the work: stash any uncommitted changes (`git stash push --include-untracked -m "ship: <NN> stuck"`), then undo the ticket's commits after the base with `git revert --no-edit <base>..HEAD`. Set `**Status:** needs-info`, add the implementer's note under `## Comments` (what it tried, where it stands, what it needs) with the stash name and the reverted commits, and commit (`ship: <NN> needs-info`). Tickets that depend on it now wait; the others go on.
+   - Anything else is **stuck**: `STATUS: stuck`, a missing status line, no commits after the base, or a red DoD. Put the branch back to green without losing the work: stash any uncommitted changes (`git stash push --include-untracked -m "ship: <NN> stuck"`), then, if there are commits after the base, undo them with `git revert --no-edit <base>..HEAD`. Set `**Status:** needs-info`, add the implementer's note under `## Comments` (what it tried, where it stands, what it needs) with the stash name and the reverted commits, and commit (`ship: <NN> needs-info`). Tickets that depend on it now wait; the others go on.
 
 Repeat until no ticket can be picked.
 
 ## Environment failure
 
-A check that won't come up (Docker, say), an unreadable DoD file, or a red baseline stops the whole feature: it is not the implementer's to fix. Send a push notification with one line naming the failure (`ship <feature>: environment failure, docker`), then end with the `run-dod.ps1` output.
+A check that won't come up (Docker, say), an unreadable DoD file, or a red baseline stops the whole feature: it is not the implementer's to fix. Send a push notification (the harness's push-notification tool, if it has one) with one line naming the failure (`ship <feature>: environment failure, docker`), then end with the `run-dod.ps1` output.
 
 ## End of the run
 
