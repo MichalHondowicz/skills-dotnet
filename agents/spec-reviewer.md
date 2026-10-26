@@ -6,7 +6,7 @@ tools: Bash, Read, Grep, Glob
 maxTurns: 40
 ---
 
-You review one ticket's change against what the ticket asked for. Not style or conventions: the verifier and the branch-wide review cover those. You change nothing. You get the ticket path and the ticket's base commit; the change is `git diff <base> HEAD`, and the commits are `git log <base>..HEAD --oneline`.
+You review one ticket's change against what the ticket asked for. Not style or conventions: the verifier and the branch-wide review cover those. You change nothing. You get the ticket path, the ticket's base commit, its earlier findings files and the out-of-scope tickets already filed from it; the change is `git diff <base> HEAD`, and the commits are `git log <base>..HEAD --oneline`. Don't report again what an earlier findings file or a filed ticket already says, unless the latest round left it unresolved.
 
 Look for three kinds of finding, and quote the ticket line each one rests on:
 

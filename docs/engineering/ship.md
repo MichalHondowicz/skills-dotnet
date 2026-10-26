@@ -6,7 +6,7 @@ It never asks you anything. Every question an implementer could ask was settled 
 
 ## Rounds
 
-Each ticket goes through up to three **rounds**. In each, the implementer builds; a **verifier** subagent on a cheap model runs the definition of done and a diff check (protected paths, analyzer suppressions, weakened tests) and confirms that every criterion names a test that was seen failing first; a **spec reviewer** then compares the change with the ticket. Their findings go back to the implementer as the next round's input, and the third round runs on a stronger model before the loop gives up. A problem a reviewer spots outside the ticket's own change becomes a new `needs-triage` ticket instead of holding this one back.
+Each ticket goes through up to three **rounds**. In each, the implementer builds; a **verifier** subagent on a cheap model runs the definition of done and a diff check (protected paths, analyzer suppressions, projects dropped from the solution, weakened tests) and confirms that every criterion names a test that was seen failing first; a **spec reviewer** then compares the change with the ticket. Their findings go back to the implementer as the next round's input, and the third round runs on a stronger model before the loop gives up. A problem a reviewer spots outside the ticket's own change becomes a new `needs-triage` ticket instead of holding this one back.
 
 ## When to reach for it
 
