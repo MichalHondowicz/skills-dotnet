@@ -3,6 +3,7 @@ name: ship
 description: "Run a planned feature's tickets unattended, one after another, in the feature's own worktree."
 disable-model-invocation: true
 model: sonnet
+effort: medium
 argument-hint: "<feature-slug>"
 ---
 
@@ -12,13 +13,14 @@ The issue tracker and triage labels should have been provided to you. If not, te
 
 ## What the project provides
 
-- `docs/agents/dod.json`, the project's **definition of done**: `environmentChecks` (each with an optional `start` command), `commands`, `implementerAgent` (the subagent that builds a ticket) and `protectedPaths`.
-- `.claude/hooks/run-dod.ps1`, which runs part of it and prints `{"ok", "failed"}`. Run it exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/run-dod.ps1 -Check environment` (starts what can be started, then reports what still fails) or `... -Check commands` (the DoD commands in order). Exit 0 is green, 1 is red, 2 means the DoD file is missing or unreadable.
+- `docs/agents/dod.json`, the project's **definition of done**: `environmentChecks` (each with an optional `start` command), `commands`, `implementerAgent` (the subagent that builds a ticket), `protectedPaths` and `quota` (`weeklyPercent` and `fiveHourPercent`, the plan usage at which no ticket starts).
+- `.claude/hooks/run-dod.ps1`, which runs part of it and prints `{"ok", "failed"}`. Run it exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/run-dod.ps1 -Check environment` (starts what can be started, then reports what still fails), `... -Check commands` (the DoD commands in order) or `... -Check quota -FiveHourPercent <n> -WeeklyPercent <n>` (the usage you read against `quota`; each window at or above its threshold is `failed`, named `weekly` or `fiveHour`). Exit 0 is green, 1 is red, 2 means the DoD file is missing or unreadable, or a quota check lacks its numbers.
+- `.claude/hooks/wait-for-reset.ps1`, run exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/wait-for-reset.ps1 -Until <resetsAt>`: it holds the computer awake and returns two minutes after that time. Exit 2 means the time was unreadable or more than six hours ahead.
 - `.claude/hooks/check-diff.ps1`, which the verifier runs over a ticket's commits: protected paths changed, analyzer suppressions added, projects dropped from the solution, existing tests changed.
 - `docs/agents/implementer-contract.md`: what the implementer gets and what it returns.
 - Hooks that hold the implementer to that contract: it cannot report success while the DoD is red, and it cannot write a protected path.
 
-If `dod.json`, `run-dod.ps1` or `check-diff.ps1` is missing, the project is not set up for unattended work: say so and stop.
+If `dod.json`, `run-dod.ps1`, `wait-for-reset.ps1` or `check-diff.ps1` is missing, the project is not set up for unattended work: say so and stop.
 
 Three subagents do the work, each in its own role: the implementer named by `implementerAgent` builds, `mattpocock-skills:verifier` (Haiku) checks the definition of done and the evidence, `mattpocock-skills:spec-reviewer` (Sonnet) checks the change against the ticket. Pass each of them pointers, never copies, and wait for each report, doing nothing else meanwhile (where the harness runs subagents in the background, that means waiting for its completion notice).
 
@@ -32,10 +34,11 @@ Starting and resuming are the same steps. The tracker is the only state: keep no
    - `git worktree list` shows it: switch the session into it with the EnterWorktree tool, passing `path`.
    - Otherwise the feature's tickets must be committed, because a new worktree only has what HEAD has: if `git status --porcelain -- .scratch/<feature>` prints anything, stop and say so. Create the worktree from the current HEAD with `git worktree add .claude/worktrees/<feature> -b feat/<feature>` (drop `-b` when the branch already exists), then switch into it with EnterWorktree, passing `path`.
    - In the worktree, uncommitted changes with no ticket `in-progress` are leftovers of a stopped run: stash them (`git stash push --include-untracked -m "ship: leftovers"`) and name the stash in your final report. With a ticket `in-progress` they are its work: leave them for the implementer.
-3. **Check the environment** with `run-dod.ps1 -Check environment`.
-4. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
+3. **Check the plan usage** as *Plan usage* below describes, when a ticket can be picked (see *Work the tickets*), before anything builds: a full limit stops or waits here, not after a baseline run. This is the first ticket's check.
+4. **Check the environment** with `run-dod.ps1 -Check environment`.
+5. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
 
-A failure in step 3 or 4, or exit 2 from either, is an **environment failure**: see below.
+A failure in step 4 or 5, or exit 2 from either, is an **environment failure**: see below.
 
 ## Work the tickets
 
@@ -45,7 +48,18 @@ Read every ticket in `.scratch/<feature>/issues/` and pick the next one:
 - otherwise the lowest-numbered `ready-for-agent` ticket whose `Blocked by` tickets are all `done`;
 - skip every other status. A ticket blocked by one that is not `done` waits.
 
-For the picked ticket, first fix its **base**: set `**Status:** in-progress` and commit only that change (`ship: start <NN>`). A ticket that is already `in-progress` keeps its base: the latest `ship: start <NN>` commit on the branch (`git log -1 --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
+For the picked ticket, first check the **plan usage** (below; the first ticket's check is the start's) and go on only when the check lets the ticket start. Then fix its **base**: set `**Status:** in-progress` and commit only that change, naming the usage just read: `ship: start <NN> (5h <n>%, week <n>%)`, with `no data` for a window the tool didn't give. A ticket that is already `in-progress` keeps its base: the latest `ship: start <NN>` commit on the branch (`git log -1 --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
+
+### Plan usage
+
+The plan's usage limits are shared with everything else the user runs, and a ticket started near a limit stops halfway. So before each ticket, a resumed `in-progress` one included:
+
+1. **Read the usage** with the app's usage tool (`get_usage`; load it with ToolSearch if it is deferred). Its plan windows give `percentUsed` and `resetsAt`: `5-hour limit` is the five-hour window, `Weekly · all models` the weekly one. When the plan part is not `ok`, ask once more. A window still missing counts as `0` in the check and as `no data` in the metrics; with neither window, skip the check and start the ticket.
+2. **Check it** with `run-dod.ps1 -Check quota -FiveHourPercent <five-hour percentUsed> -WeeklyPercent <weekly percentUsed>`. Exit 0: start the ticket. Exit 2: an environment failure.
+3. Exit 1 with `weekly` among the failed windows: a **weekly stop**. That window resets days later, so don't wait for it. If the last row of the metrics is already a weekly pause until the same reset, the user started this run before the reset and is at the screen: end the run with no new row and no push. Otherwise add a pause row, commit only the metrics file (`ship: pause, weekly limit`), send a push notification `ship <feature>: weekly limit at <n>%, run /ship <feature> after <reset>`, and end the run.
+4. Exit 1 with only `fiveHour` failed: a **five-hour wait**, without a push. If this run has already waited twice since its last ticket, a reset didn't free the window (the usage tool is stale, or something else is spending the plan): don't wait a third time, it is an environment failure (`5-hour window`). Otherwise add a pause row and commit only the metrics file (`ship: pause, 5-hour limit`). Then run `wait-for-reset.ps1 -Until <resetsAt>`, passing the five-hour `resetsAt` exactly as the tool gave it, in the background (the Bash tool's `run_in_background`), and do nothing else until it exits: the app holds the computer awake only while the session works, and the script holds it while the session waits. Exit 0: back to step 1. Any other exit is an environment failure (`wait-for-reset`).
+
+Write a reset in a row or a push as local time, `date -d <resetsAt> "+%Y-%m-%d %H:%M"`. The check runs between tickets, never inside one, so the tracker already holds everything a later `/ship` resumes from.
 
 ### Rounds
 
@@ -54,7 +68,7 @@ A ticket gets at most **three rounds**. Its findings files, `.scratch/<feature>/
 1. **Build.** Note HEAD, then dispatch the implementer with the ticket path, the worktree path, the branch, the round number, the contract `docs/agents/implementer-contract.md`, and from round 2 the previous round's findings file. Round 3 runs the implementer on Opus (the Agent tool's `model: opus`): a ticket the Sonnet rounds couldn't land gets the stronger model before the loop gives up on it.
 2. **Read its report**, once the implementer has really stopped: if it starts working again after reporting, the DoD gate has sent it back, so wait for its next report.
    - `STATUS: stuck` in round 1 or 2: go straight to round 3 on Opus, passing the implementer's note as the findings. If the note says the ticket needs a decision from the user or a change to a protected path, no model can help: the ticket is **stuck**. `STATUS: stuck` in round 3, or a missing status line: the ticket is **stuck**.
-   - Round 1 with no commits after the base: the ticket is **stuck**.
+   - Round 1 with no implementer commits after the base (commits whose subject doesn't start with `ship: `): the ticket is **stuck**.
    - Otherwise, stash anything uncommitted (`git stash push --include-untracked -m "ship: <NN> round <r> leftovers"`), so the verifier's DoD run and its diff check see the same committed state.
 3. **Check the environment** with `run-dod.ps1 -Check environment`. A failure here is an environment failure, not the ticket's fault.
 4. **Verify.** Dispatch the verifier with the worktree path, the ticket path and the base. It answers `VERDICT: pass` (with the criteria it confirmed), `VERDICT: fail` (with findings) or `VERDICT: error` (a script could not run: treat it as an environment failure).
@@ -68,7 +82,7 @@ A verifier finding is never waived: a protected path changed, a suppression adde
 
 ### Done
 
-Set `**Status:** done`, tick the criteria the verifier confirmed, name any leftovers stash in the ticket, and commit (`ship: <NN> done`).
+Set `**Status:** done`, tick the criteria the verifier confirmed, name any leftovers stash in the ticket, add the ticket's metrics row, and commit (`ship: <NN> done`).
 
 ### Stuck
 
@@ -78,25 +92,48 @@ Put the branch back to green without losing the work. Stash anything uncommitted
 - **Where it stands:** the last findings that were not resolved, the stash name, the reverted commits.
 - **Needs:** the decision or information that would unblock it.
 
-Commit (`ship: <NN> needs-info`) and send a push notification (the harness's push-notification tool, if it has one): `ship <feature>: ticket <NN> needs info, see its Comments`. Tickets that depend on it now wait; the others go on.
+Add the ticket's metrics row, commit (`ship: <NN> needs-info`) and send a push notification (the harness's push-notification tool, if it has one): `ship <feature>: ticket <NN> needs info, see its Comments`. Tickets that depend on it now wait; the others go on.
 
 ### Out-of-scope findings
 
 Each one becomes a ticket in the same `issues/` folder, with the next free number, `**Status:** needs-triage` and `**Blocked by:** None`. Its body is the finding and where it came from (ticket `<NN>`, round `<r>`). Skip a finding that repeats a ticket already filed from the same source ticket. Commit them (`ship: <NN> out-of-scope findings`). `needs-triage` is not `ready-for-agent`, so this run never picks them up: they wait for the user's triage and block nothing.
 
+### Metrics
+
+`.scratch/<feature>/metrics.md` records what each ticket cost, so the user decides about the plan from numbers. Create it with this header when it is missing:
+
+```markdown
+| Ticket | Result | Rounds | Models | Start | End | Minutes | 5h start | 5h end | Week start | Week end |
+|---|---|---|---|---|---|---|---|---|---|---|
+```
+
+Rows go in the order things happened. Adding a row removes the total row, if there is one: only the end of a run writes it.
+
+- **A ticket row** goes in just before the ticket's closing commit (`ship: <NN> done` or `ship: <NN> needs-info`), in that commit.
+  - Result is `done` or `needs-info`; Rounds the rounds spent.
+  - Models names the model of every role that ran, in the order they ran: `ship sonnet; impl sonnet, sonnet, opus; verifier haiku; reviewer sonnet`.
+  - Start is the ticket's `ship: start <NN>` commit (`git log -1 --date=format-local:"%Y-%m-%d %H:%M" --format=%cd --grep "ship: start <NN>"`) and End is now (`date "+%Y-%m-%d %H:%M"`). Minutes is `$(( ($(date +%s) - $(git log -1 --format=%ct --grep "ship: start <NN>")) / 60 ))`. When the run resumed the ticket, add `, resumed` to the Result, because its minutes include the stop.
+  - `5h start` and `Week start` come from that start commit's message, `5h end` and `Week end` from the usage read again now; `no data` where the tool gave none.
+  - A ticket with no start commit takes its Start, Minutes and start usage from this run's check before it.
+- **A pause row** has `pause` as the ticket, `5-hour until <reset>` or `weekly until <reset>` as the result, now as Start, and the usage that stopped the run in `5h start` and `Week start`; the other columns stay empty.
+- **A total row** goes at the bottom when the run ends because no ticket can be picked and the table has none, and is committed (`ship: metrics total`).
+  - `**Total**` as the ticket, `<n> done, <n> needs-info` as the result (a `done, resumed` row counts as `done`), and the sums of Rounds and Minutes.
+  - In `5h end` and `Week end`, the summed usage of the ticket rows (end minus start) as `+<n>`. Leave out of a sum a row with `no data`, or one whose end is below its start (the window reset during that ticket), and mark that sum with `*`.
+
 Repeat until no ticket can be picked.
 
 ## Environment failure
 
-A check that won't come up (Docker, say), an unreadable DoD file, or a red baseline stops the whole feature: it is not the implementer's to fix. Send a push notification (the harness's push-notification tool, if it has one) with one line naming the failure (`ship <feature>: environment failure, docker`), then end with the `run-dod.ps1` output.
+A check that won't come up (Docker, say), an unreadable DoD file, a red baseline, or a usage check that can't run or a five-hour wait that fails stops the whole feature: it is not the implementer's to fix. Send a push notification (the harness's push-notification tool, if it has one) with one line naming the failure (`ship <feature>: environment failure, docker`), then end with the `run-dod.ps1` output.
 
 ## End of the run
 
-Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, and the branch. Leave the worktree and the branch in place: merging is the user's call.
+Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, the pauses, and the branch; after a weekly stop, also when the limit resets. Leave the worktree and the branch in place: merging is the user's call.
 
 ## Never
 
 - Ask the user anything, or wait for an answer.
+- Start a ticket while the usage check says stop, or wait out the weekly window in the session.
 - Waive a finding, or fix a ticket yourself instead of sending it back to the implementer.
 - Push, merge into another branch, or delete a branch or a worktree.
 - Edit a path in `protectedPaths`, the hooks, `dod.json` or the implementer contract. Putting one back from the base, as the rounds describe, is the only write allowed there.

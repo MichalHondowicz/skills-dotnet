@@ -3,6 +3,7 @@ name: implementer
 description: Builds one ticket test-first in its feature worktree and commits it. Dispatched by /ship with pointers to the ticket and the project's implementer contract.
 model: sonnet
 maxTurns: 150
+effort: medium
 disallowedTools: Agent
 ---
 
