@@ -26,7 +26,7 @@ Three subagents do the work, each in its own role: the implementer named by `imp
 
 ## Start or resume
 
-Starting and resuming are the same steps. The tracker is the only state: keep no progress anywhere else. Run the session in auto mode, never with permission checks bypassed: the hooks and the allowlist are the guard rails, not your judgement.
+Starting and resuming are the same steps. The tracker is the only state: keep no progress anywhere else. Run the session in auto mode, never with permission checks bypassed: the hooks and the allowlist are the guard rails, not your judgement. Run every command this skill names as a plain command of its own, never joined with `;`, `&&` or a pipe or wrapped in `$(...)`: a session isolated in a worktree refuses a compound command that runs `git` or `pwsh`, and the tool reports the exit code anyway.
 
 1. **Stay awake.** If the app offers a keep-awake tool, hold the computer awake until the session goes idle.
 2. **Enter the feature's worktree.** The feature is built on branch `feat/<feature>` in the worktree `.claude/worktrees/<feature>`, never in the user's checkout.
@@ -112,7 +112,7 @@ Rows go in the order things happened. Adding a row removes the total row, if the
 - **A ticket row** goes in just before the ticket's closing commit (`ship: <NN> done` or `ship: <NN> needs-info`), in that commit.
   - Result is `done` or `needs-info`; Rounds the rounds spent.
   - Models names the model of every role that ran, in the order they ran: `ship sonnet; impl sonnet, sonnet, opus; verifier haiku; reviewer sonnet`.
-  - Start is the ticket's `ship: start <NN>` commit (`git log -1 --date=format-local:"%Y-%m-%d %H:%M" --format=%cd --grep "ship: start <NN>"`) and End is now (`date "+%Y-%m-%d %H:%M"`). Minutes is `$(( ($(date +%s) - $(git log -1 --format=%ct --grep "ship: start <NN>")) / 60 ))`. When the run resumed the ticket, add `, resumed` to the Result, because its minutes include the stop.
+  - Start is the ticket's `ship: start <NN>` commit (`git log -1 --date=format-local:"%Y-%m-%d %H:%M" --format=%cd --grep "ship: start <NN>"`) and End is now (`date "+%Y-%m-%d %H:%M"`). Minutes is the difference of `date +%s` and `git log -1 --format=%ct --grep "ship: start <NN>"`, divided by 60. When the run resumed the ticket, add `, resumed` to the Result, because its minutes include the stop.
   - `5h start` and `Week start` come from that start commit's message, `5h end` and `Week end` from the usage read again now; `no data` where the tool gave none.
   - A ticket with no start commit takes its Start, Minutes and start usage from this run's check before it.
 - **A pause row** has `pause` as the ticket, `5-hour until <reset>` or `weekly until <reset>` as the result, now as Start, and the usage that stopped the run in `5h start` and `Week start`; the other columns stay empty.
