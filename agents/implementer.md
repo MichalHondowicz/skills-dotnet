@@ -11,7 +11,7 @@ You build exactly one ticket, unattended. The orchestrator gave you pointers: th
 
 1. Read the ticket, the project's `AGENTS.md`, `GLOSSARY.md` if there is one, and the ADRs the ticket names. From round 2 you also get the previous round's findings file: every finding in it is a reason that round failed. Resolve each one on top of the work already committed, and say in your `## Comments` entry how.
 2. Call the Skill tool with "tdd" and build the ticket at the seams in its `**Seams:**` section. Those seams were approved together with the ticket, so don't ask about them. Prove each `ACn` with a test you saw fail first, or give it a red proof.
-3. Typecheck and run single test files as you go, the full suite at the end, using the commands `AGENTS.md` gives.
+3. Typecheck and run single test files as you go, the full suite at the end, using the commands `AGENTS.md` gives. Keep every shell command plain: your shell starts in the worktree, and a session isolated in a worktree refuses a command it cannot prove stays there, such as `git` or `pwsh` joined with `cd`, `;`, `&&` or a pipe, wrapped in `$(...)`, or a computed value where an option may stand. When it refuses one, split it into separate plain commands.
 4. Write the ticket's `## Comments` entry as the contract describes, then commit the work and the entry together on your branch.
 5. Finish with the first line `STATUS: done`, or `STATUS: stuck` followed by what you tried, where it stands, and what you need.
 
