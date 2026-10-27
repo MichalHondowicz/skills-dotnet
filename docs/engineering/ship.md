@@ -2,7 +2,7 @@
 
 `ship` runs a planned feature's [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) to the end while you are away. It moves the feature into its own git worktree, checks that the environment is up and the build is green, then hands the tickets one by one to an implementer [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) that builds each with [tdd](https://aihero.dev/skills-tdd) and commits it.
 
-It never asks you anything. Every question an implementer could ask was settled when you approved the tickets: each one names its seams and the test that proves each acceptance criterion. What would otherwise be a question becomes a recorded outcome instead: a ticket that can't be finished in three rounds goes to `needs-info` with a brief on what was tried, and the tickets that don't depend on it go on.
+It asks you nothing until the feature is ready, and then exactly one question (see *Gate 2*). Every question an implementer could ask was settled when you approved the tickets: each one names its seams and the test that proves each acceptance criterion. What would otherwise be a question becomes a recorded outcome instead: a ticket that can't be finished in three rounds goes to `needs-info` with a brief on what was tried, and the tickets that don't depend on it go on.
 
 ## Rounds
 
@@ -13,6 +13,12 @@ Each ticket goes through up to three **rounds**. In each, the implementer builds
 When every ticket is done, two reviewers on the strongest model look at the whole branch once: one against the project's own coding standards (its standards skill, `ca-review` in a Clean Architecture template), one against the spec and all its tickets. Their in-scope findings go back to the implementer for at most three fix rounds, and each fix is checked again only against those findings, so the strong model reviews the whole branch once, not three times.
 
 Then `ship` writes `brief.md` next to the tickets: whether the branch is ready, what was done, the test counts, how each review finding was resolved and which are still open, what deserves a look although nothing failed, the changed screens when the project names them, and the conventions the reviewers propose, each with its rule, reason and the ticket it came from. A notification points at the brief, so you decide about the merge from your phone. It reaches the phone only while the session has Remote Control on and mobile push is turned on in Claude Code's `/config`; `ship` reports whether it had Remote Control, and the reason for any push the tool didn't send.
+
+## Gate 2
+
+The brief ends with one question, and the session waits for your answer: the only question `ship` ever asks. You answer in one message, at the computer or through Remote Control on your phone: `OK` to merge or a no, plus a yes or no for each convention proposal (`OK, 1 yes, 2 no`). Only an unambiguous `OK` merges. A question or anything unclear gets an answer and the question again; a proposal you don't mention stays open for next time.
+
+`ship` records your answer in the brief and writes each accepted convention into the file the reviewer named, word for word, in a commit of its own on the feature branch. On `OK` it then fast-forwards `main` without touching your checkout's files (it stops if `main` moved, if your checkout is on `main` with uncommitted work, or if the push fails), runs `git push origin main`, removes the feature's worktree and branch, and watches the CI run for that push in the app's browser for up to twenty minutes. A red CI sends a notification; nothing is reverted.
 
 ## Usage limits
 
@@ -55,7 +61,10 @@ grill-with-docs → to-spec → to-tickets → ship → retro
 So the branch stays green for the tickets after it. The work is not lost: uncommitted changes go to a named stash, the commits stay in history behind a revert, and the ticket's note says where both are.
 
 **Does it merge or push when it is done?**
-No. It leaves the feature branch and its worktree in place, writes the brief and reports what happened; merging is your decision.
+Only after your `OK` at gate 2. Until then it leaves the feature branch and its worktree in place. After it, the only push is `git push origin main`, a fast-forward with no `--force`. The project's allowlist should name exactly that command, so a push of anything else still asks you.
+
+**Why does it ask about each convention separately?**
+A convention binds every later feature, so it changes only by your decision, not as a side effect of approving a merge. An accepted one lands in its own commit, so the history shows where the rule came from.
 
 **Why doesn't it turn Remote Control on itself?**
 The app lets a session switch it only when you ask, and refuses it to sessions running unattended. Turn on "Connect new sessions to Remote Control" in the app's settings once, and every `/ship` session starts connected.
@@ -70,4 +79,5 @@ A ticket that two rounds and a stronger third couldn't land is rarely one more r
 - No permission prompt or question is waiting in the session.
 - `metrics.md` has a row for every finished ticket, a row for every pause, a row for the branch review, and a total once nothing is left to do.
 - A finished feature ends with `brief.md`, a notification pointing at it, and the branch review's findings either resolved or listed as open.
-- Running `/ship <feature>` again on a finished feature picks nothing and says so.
+- After your `OK`, `main` on the remote holds the feature, the worktree and branch are gone, and the report names the CI result.
+- Running `/ship <feature>` again on a merged feature only finishes what the merge left undone (the push, the cleanup, the CI check) and says so.

@@ -1,13 +1,13 @@
 ---
 name: ship
-description: "Run a planned feature's tickets unattended, one after another, in the feature's own worktree."
+description: "Run a planned feature's tickets unattended, one after another, in the feature's own worktree, and merge it into main on the user's OK at gate 2."
 disable-model-invocation: true
 model: sonnet
 effort: medium
 argument-hint: "<feature-slug>"
 ---
 
-Run the tickets of the feature `$ARGUMENTS` from start to finish without the user. They planned the tickets and approved them; from here on nobody answers questions. Never ask the user anything: when something blocks you, record it where the steps below say and go on, or stop.
+Run the tickets of the feature `$ARGUMENTS` from start to finish without the user. They planned the tickets and approved them; from here on nobody answers questions until the feature is ready. Never ask the user anything but the one question of *Gate 2*: when something blocks you, record it where the steps below say and go on, or stop.
 
 The issue tracker and triage labels should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills` and stop.
 
@@ -31,11 +31,14 @@ Starting and resuming are the same steps. The tracker is the only state: keep no
 1. **Stay awake.** If the app offers a keep-awake tool, hold the computer awake until the session goes idle.
 2. **Note Remote Control.** Read this session's `remoteControlState` with the app's session tool (`get_session` with `"self"`; load it with ToolSearch if it is deferred). A push reaches the user's phone only while it is `on`, so name the state in your final report. Never switch it yourself: the tool is the user's to use.
 3. **Enter the feature's worktree.** The feature is built on branch `feat/<feature>` in the worktree `.claude/worktrees/<feature>`, never in the user's checkout.
+   - First, whether gate 2 already merged the feature:
+     - The branch is gone (`git rev-parse --verify --quiet refs/heads/feat/<feature>` prints nothing) and `main` holds the brief (`git cat-file -e main:.scratch/<feature>/brief.md` exits 0): gate 2 merged it and cleaned up. Its CI result may never have been reported: run *Gate 2* step 10, then end the run saying the feature is merged.
+     - The branch exists, `main` holds it (`git merge-base --is-ancestor refs/heads/feat/<feature> main` exits 0), and the last `## Decision` entry of its brief (`git show feat/<feature>:.scratch/<feature>/brief.md`) says `merge: OK`: gate 2 merged it and stopped before the end. That `OK`, recorded and already in `main`, is the user's `OK` for the rest. Without entering or creating the worktree, go on at *Gate 2* step 6.
    - Already in that worktree: go on.
    - `git worktree list` shows it: switch the session into it with the EnterWorktree tool, passing `path`.
    - Otherwise the feature's tickets must be committed, because a new worktree only has what HEAD has: if `git status --porcelain -- .scratch/<feature>` prints anything, stop and say so. Create the worktree from the current HEAD with `git worktree add .claude/worktrees/<feature> -b feat/<feature>` (drop `-b` when the branch already exists), then switch into it with EnterWorktree, passing `path`.
    - In the worktree, uncommitted changes with no ticket `in-progress` are leftovers of a stopped run: stash them (`git stash push --include-untracked -m "ship: leftovers"`) and name the stash in your final report. With a ticket `in-progress` they are its work: leave them for the implementer.
-4. **Check the plan usage** as *Plan usage* below describes, before anything builds: a full limit stops or waits here, not after a baseline run. This is the first ticket's check. Do it only when there is work to do: a ticket can be picked (see *Work the tickets*), or every ticket is done and there is no `brief.md` yet (see *Branch review*). With nothing to do, skip to *End of the run*.
+4. **Check the plan usage** as *Plan usage* below describes, before anything builds: a full limit stops or waits here, not after a baseline run. This is the first ticket's check. Do it only when there is work to do: a ticket can be picked (see *Work the tickets*), or every ticket is done and there is no `brief.md` yet (see *Branch review*). Every ticket done and `brief.md` there: skip the checks and go to *Gate 2*, which builds nothing. With nothing to do, skip to *End of the run*.
 5. **Check the environment** with `run-dod.ps1 -Check environment`.
 6. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
 
@@ -128,7 +131,7 @@ Repeat until no ticket can be picked. Then, if every ticket is `done` (`needs-tr
 
 Once every ticket is done, two reviewers on Opus look at the whole branch, the in-scope findings go back to the implementer for at most three fix rounds, and a brief tells the user whether to merge. The branch's base is `git merge-base main HEAD`. Its state is in `.scratch/<feature>/`, so a run goes on at the first of these that holds:
 
-1. `brief.md` exists: the feature waits at gate 2. End the run with no push: the push went out with the brief. To have the branch reviewed again, the user deletes `brief.md` and `findings/branch-*.md` in a commit on the branch.
+1. `brief.md` exists: the feature waits at gate 2. Go to *Gate 2*, with no push: the push went out with the brief. To have the branch reviewed again, the user deletes `brief.md` and `findings/branch-*.md` in a commit on the branch.
 2. `findings/branch-review.md` is missing: **Start** below.
 3. It holds no reviewer reports yet: **Review**.
 4. There is no `findings/branch-round-<r>.md`: the review found nothing in-scope, write the **Brief**.
@@ -177,10 +180,35 @@ Its sections, in this order:
 - **Review:** each in-scope finding of the branch review with how its `## Resolution` resolved it, then the open ones.
 - **Uncertain:** what deserves a look although nothing failed: the reviewers' notes, resumed tickets, stashes, pauses.
 - **Screens:** only with `screenPaths`, the changed screen files.
-- **Convention proposals:** the standards reviewer's proposals, each with its rule, why, and the ticket it came from.
+- **Convention proposals:** the standards reviewer's proposals, numbered, each with its target file, its rule quoted exactly as the reviewer wrote it (in the target file's language, which may differ from the brief's), why, and the ticket it came from.
 - **Remote Control:** on or off.
+- **Gate 2:** the question *Gate 2* asks, with an example answer.
 
-Add the branch row and the total row to the metrics, commit them with the brief (`ship: brief`), send a push notification `ship <feature>: ready for gate 2, see .scratch/<feature>/brief.md`, and end the run.
+Add the branch row and the total row to the metrics, commit them with the brief (`ship: brief`), send a push notification `ship <feature>: ready for gate 2, see .scratch/<feature>/brief.md`, and go to *Gate 2*.
+
+## Gate 2
+
+The user decides in one message, in this session, from the computer or through Remote Control from the phone: whether to merge the branch into `main`, and separately about each convention proposal. This is the only question the run asks. The answers are kept in `brief.md`, under `## Decision`, so a later run knows what was settled. A run whose earlier gate 2 already merged the feature doesn't come here: *Start or resume*, step 3, sends it on. A session that started inside the feature's worktree can't leave it for the main checkout, where the merge happens: say that gate 2 runs from a `/ship` started in the main checkout, and end the run before asking anything.
+
+1. **Ask.** Report as *End of the run* says, then end the turn with one question, in the brief's language: `OK` merges, a no keeps the branch, and each proposal no entry has decided yet takes `<n>: yes` or `<n>: no` (in a Polish brief `tak` and `nie`), with an example (`OK, 1 tak, 2 nie`). Send no push here: the brief's push already went, and a user who typed `/ship` is at the screen. When the last entry says `merge: OK` but `main` doesn't hold the branch (an earlier run stopped before the merge), say so in the question: an `OK` counts only in the session that merges, or once it is in `main`. The run goes on when the user answers.
+2. **Read the answer.**
+   - Only an unambiguous `OK` approves the merge; a clear no declines it. A question, a remark, an answer with no merge word or one that is neither, or anything you are not sure of decides nothing, the proposals included: record nothing, answer what was asked, ask again as in step 1, and end the turn.
+   - Each open proposal: yes accepts it, no rejects it, an answer that doesn't mention it drops it. A dropped proposal stays undecided: a later gate 2 asks about it again.
+3. **Record.** Add an entry under `## Decision` at the end of `brief.md` (add the heading the first time): the time (`date "+%Y-%m-%d %H:%M"`), `merge: OK` or `merge: no`, each proposal as accepted, rejected or dropped, and the answer verbatim. Write each accepted proposal's rule into its target file, exactly as the brief quotes it, where the proposal says, changing nothing else there: with putting a path back from the base, the only write to a protected path this skill makes. Commit the entry and the rules together, apart from any other change: `ship: gate 2, conventions <n>[, <n>]` when it accepts any, otherwise `ship: gate 2 decision`.
+4. **No merge** ends the run: nothing went to `main`. Running `/ship <feature>` again asks again.
+5. **Check `main`.** In the worktree, `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD`. Any exit but 0 from either means the fetch failed, the remote `main` moved past the branch's base, or there is none: stop. Never rebase: that is the user's.
+6. **Leave the worktree** with the ExitWorktree tool, `action: "keep"` (it never removes a worktree that was entered by `path`); a run sent here by *Start or resume* never entered it and skips the tool. `git rev-parse --show-toplevel` must now print the main checkout, the first path in `git worktree list`; if it still prints the feature's worktree, the session started there: stop, and say that gate 2 merges from the main checkout.
+7. **Fast-forward `main`** in the main checkout, by its branch (`git rev-parse --abbrev-ref HEAD`):
+   - `main`, and `git status --porcelain --untracked-files=no` prints nothing: `git merge --ff-only feat/<feature>` (it refuses by itself to overwrite an untracked file);
+   - `main` with changes: stop. They are the user's work in progress;
+   - another branch: `git fetch . feat/<feature>:main`. It moves `main` only by a fast-forward, and refuses while `main` is checked out in another worktree.
+
+   Any exit but 0: stop. Never `--update-head-ok`, a merge commit or a rebase. Run again after `main` already holds the branch, both commands change nothing and exit 0.
+8. **Push.** First `git fetch origin`; when `git merge-base --is-ancestor refs/heads/feat/<feature> origin/main` then exits 0, the remote already holds the feature (an earlier run pushed it): go on at step 9. If not, `git rev-parse main` and `git rev-parse refs/heads/feat/<feature>` must print the same commit. A different one means `main` holds commits that are not the feature's, which no `OK` covered: stop. Then push with exactly `git push origin main`, never another refspec and never `--force`. Any exit but 0: stop. The local `main` holds the feature and the remote does not: say so, and leave the worktree and the branch.
+9. **Clean up.** When `git worktree list` shows `.claude/worktrees/<feature>`, `git worktree remove .claude/worktrees/<feature>`. Only once the worktree is gone, delete the branch at the tip the remote holds: take it from `git rev-parse refs/heads/feat/<feature>`, check that `git merge-base --is-ancestor <tip> origin/main` exits 0, then `git update-ref -d refs/heads/feat/<feature> <tip>`, which refuses if the branch moved meanwhile. (`git branch -d` would refuse a merged branch whenever the checkout is on another branch, because it compares with HEAD.) A failed removal keeps the branch, so a later run still finds both. A failure here doesn't stop the gate: report it and go on.
+10. **Check CI.** Take the remote from `git remote get-url origin`. Not a `github.com` repository: the result is `no CI for this remote`. Otherwise open `https://github.com/<owner>/<repo>/actions?query=branch%3Amain` in the app's built-in browser and read it as text (load its tools with ToolSearch if they are deferred). The push's run is the one titled with the subject of the last commit pushed (`git log -1 --format=%s origin/main`). When a late resume finds `main` moved on since, no run matches and the result is `CI not checked`. While it is queued, running or not listed yet, wait (`Start-Sleep -Seconds 120` with the PowerShell tool, in the background) and read the page again, ten reads at most. No browser tool, a sign-in page instead of the runs, or no finished run after the tenth read: the result is `CI not checked`, with the link. A failed run: send a push notification `ship <feature>: merged, CI failed, see <link>`, and revert nothing.
+
+A stop in steps 5 to 8 leaves the decision recorded and nothing to undo: at most the local `main` moved by a fast-forward. Name the step and the command's output in the final report. The user sets `main` or the remote right. The next `/ship <feature>` asks again while `main` doesn't hold the branch, and goes on at step 6 once it does.
 
 ## Environment failure
 
@@ -188,14 +216,14 @@ A check that won't come up (Docker, say), an unreadable DoD file, a red baseline
 
 ## End of the run
 
-Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, the pauses, the branch, whether Remote Control was on, each push the tool reported as not sent with the reason it gave, and the brief when there is one; after a weekly stop, also when the limit resets. Leave the worktree and the branch in place: merging is the user's call.
+Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, the pauses, the branch, whether Remote Control was on, each push the tool reported as not sent with the reason it gave, and the brief when there is one; after a weekly stop, also when the limit resets. After gate 2, also the decision (merge, and each proposal accepted, rejected or dropped), the commit `main` was moved to, the push, the cleanup and the CI result with its link, or the step that stopped it with the command's output. Leave the worktree and the branch in place unless gate 2 removed them: merging is the user's call.
 
 ## Never
 
-- Ask the user anything, or wait for an answer.
+- Ask the user anything, or wait for an answer, except the question of *Gate 2*.
 - Start a ticket while the usage check says stop, or wait out the weekly window in the session.
 - Waive a finding, or fix a ticket yourself instead of sending it back to the implementer.
-- Push, merge into another branch, or delete a branch or a worktree.
+- Push, merge into another branch, or delete a branch or a worktree. The only exception is *Gate 2* after the user's `OK`, given in this session or recorded and already in `main` (*Start or resume*, step 3): the fast-forward of `main`, `git push origin main`, and, once that push succeeded, removing the feature's worktree and branch.
 - Switch Remote Control on or off.
-- Edit a path in `protectedPaths`, the hooks, `dod.json` or the implementer contract. Putting one back from the base, as the rounds describe, is the only write allowed there.
+- Edit a path in `protectedPaths`, the hooks, `dod.json` or the implementer contract. Two writes are allowed there: putting a path back from the base, as the rounds describe, and writing a convention the user accepted at *Gate 2*, exactly as the brief quotes it.
 - Build in the user's checkout instead of the worktree.
