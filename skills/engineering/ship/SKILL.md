@@ -13,8 +13,8 @@ The issue tracker and triage labels should have been provided to you. If not, te
 
 ## What the project provides
 
-- `docs/agents/dod.json`, the project's **definition of done**: `environmentChecks` (each with an optional `start` command), `commands`, `implementerAgent` (the subagent that builds a ticket), `protectedPaths` and `quota` (`weeklyPercent` and `fiveHourPercent`, the plan usage at which no ticket starts).
-- `.claude/hooks/run-dod.ps1`, which runs part of it and prints `{"ok", "failed"}`. Run it exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/run-dod.ps1 -Check environment` (starts what can be started, then reports what still fails), `... -Check commands` (the DoD commands in order) or `... -Check quota -FiveHourPercent <n> -WeeklyPercent <n>` (the usage you read against `quota`; each window at or above its threshold is `failed`, named `weekly` or `fiveHour`). Exit 0 is green, 1 is red, 2 means the DoD file is missing or unreadable, or a quota check lacks its numbers.
+- `docs/agents/dod.json`, the project's **definition of done**: `environmentChecks` (each with an optional `start` command), `commands`, `implementerAgent` (the subagent that builds a ticket), `protectedPaths` and `quota` (`weeklyPercent` and `fiveHourPercent`, the plan usage at which no ticket starts). Optionally `standardsSkill`, the project's own review of its coding standards, which the branch review runs, and `screenPaths`, globs of the files that make up screens, which the brief lists.
+- `.claude/hooks/run-dod.ps1`, which runs part of it and prints `{"ok", "failed"}`. Run it exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/run-dod.ps1 -Check environment` (starts what can be started, then reports what still fails), `... -Check commands` (the DoD commands in order; it also prints `passed`, the last lines of each command that passed) or `... -Check quota -FiveHourPercent <n> -WeeklyPercent <n>` (the usage you read against `quota`; each window at or above its threshold is `failed`, named `weekly` or `fiveHour`). Exit 0 is green, 1 is red, 2 means the DoD file is missing or unreadable, or a quota check lacks its numbers.
 - `.claude/hooks/wait-for-reset.ps1`, run exactly as `pwsh -NoProfile -NonInteractive -File .claude/hooks/wait-for-reset.ps1 -Until <resetsAt>`: it holds the computer awake and returns two minutes after that time. Exit 2 means the time was unreadable or more than six hours ahead.
 - `.claude/hooks/check-diff.ps1`, which the verifier runs over a ticket's commits: protected paths changed, analyzer suppressions added, projects dropped from the solution, existing tests changed.
 - `docs/agents/implementer-contract.md`: what the implementer gets and what it returns.
@@ -22,23 +22,24 @@ The issue tracker and triage labels should have been provided to you. If not, te
 
 If `dod.json`, `run-dod.ps1`, `wait-for-reset.ps1` or `check-diff.ps1` is missing, the project is not set up for unattended work: say so and stop.
 
-Three subagents do the work, each in its own role: the implementer named by `implementerAgent` builds, `mattpocock-skills:verifier` (Haiku) checks the definition of done and the evidence, `mattpocock-skills:spec-reviewer` (Sonnet) checks the change against the ticket. Pass each of them pointers, never copies, and wait for each report, doing nothing else meanwhile (where the harness runs subagents in the background, that means waiting for its completion notice).
+Three subagents do the work, each in its own role: the implementer named by `implementerAgent` builds, `mattpocock-skills:verifier` (Haiku) checks the definition of done and the evidence, `mattpocock-skills:spec-reviewer` (Sonnet) checks the change against the ticket. After the last ticket two reviewers on Opus look at the whole branch once: `mattpocock-skills:standards-reviewer` and the spec reviewer again. Pass each of them pointers, never copies, and wait for each report, doing nothing else meanwhile (where the harness runs subagents in the background, that means waiting for its completion notice).
 
 ## Start or resume
 
 Starting and resuming are the same steps. The tracker is the only state: keep no progress anywhere else. Run the session in auto mode, never with permission checks bypassed: the hooks and the allowlist are the guard rails, not your judgement. Run every command this skill names as a plain command of its own, never joined with `;`, `&&` or a pipe or wrapped in `$(...)`: a session isolated in a worktree refuses a compound command that runs `git` or `pwsh`, and the tool reports the exit code anyway.
 
 1. **Stay awake.** If the app offers a keep-awake tool, hold the computer awake until the session goes idle.
-2. **Enter the feature's worktree.** The feature is built on branch `feat/<feature>` in the worktree `.claude/worktrees/<feature>`, never in the user's checkout.
+2. **Note Remote Control.** Read this session's `remoteControlState` with the app's session tool (`get_session` with `"self"`; load it with ToolSearch if it is deferred). A push reaches the user's phone only while it is `on`, so name the state in your final report. Never switch it yourself: the tool is the user's to use.
+3. **Enter the feature's worktree.** The feature is built on branch `feat/<feature>` in the worktree `.claude/worktrees/<feature>`, never in the user's checkout.
    - Already in that worktree: go on.
    - `git worktree list` shows it: switch the session into it with the EnterWorktree tool, passing `path`.
    - Otherwise the feature's tickets must be committed, because a new worktree only has what HEAD has: if `git status --porcelain -- .scratch/<feature>` prints anything, stop and say so. Create the worktree from the current HEAD with `git worktree add .claude/worktrees/<feature> -b feat/<feature>` (drop `-b` when the branch already exists), then switch into it with EnterWorktree, passing `path`.
    - In the worktree, uncommitted changes with no ticket `in-progress` are leftovers of a stopped run: stash them (`git stash push --include-untracked -m "ship: leftovers"`) and name the stash in your final report. With a ticket `in-progress` they are its work: leave them for the implementer.
-3. **Check the plan usage** as *Plan usage* below describes, when a ticket can be picked (see *Work the tickets*), before anything builds: a full limit stops or waits here, not after a baseline run. This is the first ticket's check.
-4. **Check the environment** with `run-dod.ps1 -Check environment`.
-5. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
+4. **Check the plan usage** as *Plan usage* below describes, before anything builds: a full limit stops or waits here, not after a baseline run. This is the first ticket's check. Do it only when there is work to do: a ticket can be picked (see *Work the tickets*), or every ticket is done and there is no `brief.md` yet (see *Branch review*). With nothing to do, skip to *End of the run*.
+5. **Check the environment** with `run-dod.ps1 -Check environment`.
+6. **Check the baseline** with `run-dod.ps1 -Check commands`. The tickets were planned on a green build.
 
-A failure in step 4 or 5, or exit 2 from either, is an **environment failure**: see below.
+A failure in step 5 or 6, or exit 2 from either, is an **environment failure**: see below.
 
 ## Work the tickets
 
@@ -52,12 +53,12 @@ For the picked ticket, first check the **plan usage** (below; the first ticket's
 
 ### Plan usage
 
-The plan's usage limits are shared with everything else the user runs, and a ticket started near a limit stops halfway. So before each ticket, a resumed `in-progress` one included:
+The plan's usage limits are shared with everything else the user runs, and a ticket started near a limit stops halfway. So before each ticket, a resumed `in-progress` one included, and before the branch review and each of its fix rounds:
 
-1. **Read the usage** with the app's usage tool (`get_usage`; load it with ToolSearch if it is deferred). Its plan windows give `percentUsed` and `resetsAt`: `5-hour limit` is the five-hour window, `Weekly · all models` the weekly one. When the plan part is not `ok`, ask once more. A window still missing counts as `0` in the check and as `no data` in the metrics; with neither window, skip the check and start the ticket.
-2. **Check it** with `run-dod.ps1 -Check quota -FiveHourPercent <five-hour percentUsed> -WeeklyPercent <weekly percentUsed>`. Exit 0: start the ticket. Exit 2: an environment failure.
+1. **Read the usage** with the app's usage tool (`get_usage`; load it with ToolSearch if it is deferred). Its plan windows give `percentUsed` and `resetsAt`: `5-hour limit` is the five-hour window, `Weekly · all models` the weekly one. When the plan part is not `ok`, ask once more. A window still missing counts as `0` in the check and as `no data` in the metrics; with neither window, skip the check and go on.
+2. **Check it** with `run-dod.ps1 -Check quota -FiveHourPercent <five-hour percentUsed> -WeeklyPercent <weekly percentUsed>`. Exit 0: go on with the ticket or the branch step. Exit 2: an environment failure.
 3. Exit 1 with `weekly` among the failed windows: a **weekly stop**. That window resets days later, so don't wait for it. If the last row of the metrics is already a weekly pause until the same reset (within an hour of it: the tool's `resetsAt` drifts by a moment between reads), the user started this run before the reset and is at the screen: end the run with no new row and no push. Otherwise add a pause row, commit only the metrics file (`ship: pause, weekly limit`), send a push notification `ship <feature>: weekly limit at <n>%, run /ship <feature> after <reset>`, and end the run.
-4. Exit 1 with only `fiveHour` failed: a **five-hour wait**, without a push. If this run has already waited twice since its last ticket, a reset didn't free the window (the usage tool is stale, or something else is spending the plan): don't wait a third time, it is an environment failure (`5-hour window`). Otherwise add a pause row and commit only the metrics file (`ship: pause, 5-hour limit`). Once that commit is in, run `wait-for-reset.ps1 -Until <resetsAt>`, passing the five-hour `resetsAt` exactly as the tool gave it, in the background (`run_in_background`, with the PowerShell tool where the session has one: a worktree session's Bash tool refuses a background `pwsh`), and do nothing else until it exits: the app holds the computer awake only while the session works, and the script holds it while the session waits. Exit 0: back to step 1. Any other exit is an environment failure (`wait-for-reset`).
+4. Exit 1 with only `fiveHour` failed: a **five-hour wait**, without a push. If this run has already waited twice since it last finished a ticket, the branch review or a fix round, a reset didn't free the window (the usage tool is stale, or something else is spending the plan): don't wait a third time, it is an environment failure (`5-hour window`). Otherwise add a pause row and commit only the metrics file (`ship: pause, 5-hour limit`). Once that commit is in, run `wait-for-reset.ps1 -Until <resetsAt>`, passing the five-hour `resetsAt` exactly as the tool gave it, in the background (`run_in_background`, with the PowerShell tool where the session has one: a worktree session's Bash tool refuses a background `pwsh`), and do nothing else until it exits: the app holds the computer awake only while the session works, and the script holds it while the session waits. Exit 0: back to step 1. Any other exit is an environment failure (`wait-for-reset`).
 
 Write a reset in a row or a push as local time, `date -d <resetsAt> "+%Y-%m-%d %H:%M"`. The check runs between tickets, never inside one, so the tracker already holds everything a later `/ship` resumes from.
 
@@ -115,12 +116,71 @@ Rows go in the order things happened. Adding a row removes the total row, if the
   - Start is the ticket's `ship: start <NN>` commit (`git log -1 --date=format-local:"%Y-%m-%d %H:%M" --format=%cd --grep "ship: start <NN>"`) and End is now (`date "+%Y-%m-%d %H:%M"`). Minutes is the difference of `date +%s` and `git log -1 --format=%ct --grep "ship: start <NN>"`, divided by 60. When the run resumed the ticket, add `, resumed` to the Result, because its minutes include the stop.
   - `5h start` and `Week start` come from that start commit's message, `5h end` and `Week end` from the usage read again now; `no data` where the tool gave none.
   - A ticket with no start commit takes its Start, Minutes and start usage from this run's check before it.
+- **A branch row** goes in the brief's commit: `branch` as the ticket, `brief` or `brief, <n> open` as the result, the fix rounds spent as Rounds, and every role that ran in Models (`ship sonnet; standards opus; spec opus; impl sonnet; verifier haiku; re-review opus`). Its start is the commit that added `findings/branch-review.md`: Start is `git log --diff-filter=A -1 --date=format-local:"%Y-%m-%d %H:%M" --format=%cd -- .scratch/<feature>/findings/branch-review.md`, Minutes the difference of `date +%s` and the same command with `--format=%ct`, divided by 60, and the start usage comes from that commit's message (`--format=%s`). End and the end usage are now, as in a ticket row. When this run did not start the review, add `, resumed` to the Result.
 - **A pause row** has `pause` as the ticket, `5-hour until <reset>` or `weekly until <reset>` as the result, now as Start (`date "+%Y-%m-%d %H:%M"`), and the usage that stopped the run in `5h start` and `Week start`; the other columns stay empty.
-- **A total row** goes at the bottom when the run ends because no ticket can be picked and the table has none, and is committed (`ship: metrics total`).
-  - `**Total**` as the ticket, `<n> done, <n> needs-info` as the result (a `done, resumed` row counts as `done`), and the sums of Rounds and Minutes.
-  - In `5h end` and `Week end`, the summed usage of the ticket rows (end minus start) as `+<n>`. Leave out of a sum a row with `no data`, or one whose end is below its start (the window reset during that ticket), and mark that sum with `*`.
+- **A total row** goes at the bottom when the run ends with nothing left that it can do (the brief is written, or no ticket can be picked while some wait on the user) and the table has none. It goes in the brief's commit, or else in its own (`ship: metrics total`).
+  - `**Total**` as the ticket, `<n> done, <n> needs-info` as the result (counting ticket rows; a `done, resumed` row counts as `done`), and the sums of Rounds and Minutes over the ticket and branch rows.
+  - In `5h end` and `Week end`, the summed usage of the ticket and branch rows (end minus start) as `+<n>`. Leave out of a sum a row with `no data`, or one whose end is below its start (the window reset during that ticket), and mark that sum with `*`.
 
-Repeat until no ticket can be picked.
+Repeat until no ticket can be picked. Then, if every ticket is `done` (`needs-triage` tickets are new backlog and `wontfix` ones were dropped: neither is this feature's work), go on to the branch review. Otherwise the feature waits on the user: end the run.
+
+## Branch review
+
+Once every ticket is done, two reviewers on Opus look at the whole branch, the in-scope findings go back to the implementer for at most three fix rounds, and a brief tells the user whether to merge. The branch's base is `git merge-base main HEAD`. Its state is in `.scratch/<feature>/`, so a run goes on at the first of these that holds:
+
+1. `brief.md` exists: the feature waits at gate 2. End the run with no push: the push went out with the brief. To have the branch reviewed again, the user deletes `brief.md` and `findings/branch-*.md` in a commit on the branch.
+2. `findings/branch-review.md` is missing: **Start** below.
+3. It holds no reviewer reports yet: **Review**.
+4. There is no `findings/branch-round-<r>.md`: the review found nothing in-scope, write the **Brief**.
+5. The highest round file ends with a `## Result`: write the **Brief**.
+6. It has a `## Resolution` (the implementer finished round `r`): fix round `r` at **Verify**.
+7. Otherwise: fix round `r` at **Build**.
+
+A fix round's base is the commit that added its findings file: `git log --diff-filter=A -1 --format=%h -- .scratch/<feature>/findings/branch-round-<r>.md`. Round 1's base is the **fix base**: the verifier checks everything after it in every round, as it checks a ticket from its start. Check the plan usage (*Plan usage*) before the review and before each **Build**: Opus spends the plan fastest. A run that starts here has just checked it.
+
+### Start and review
+
+1. **Start.** Write `findings/branch-review.md` with one line, `Started (5h <n>%, week <n>%)`, the usage just read, and commit only that file: `ship: start branch review (5h <n>%, week <n>%)`.
+2. **Review.** Dispatch both reviewers at once and wait for both:
+   - `mattpocock-skills:standards-reviewer` with the base, the tickets folder, the findings folder, and `standardsSkill` from `dod.json` or that there is none;
+   - `mattpocock-skills:spec-reviewer` with `model: opus`, the base, the spec path and the tickets folder instead of one ticket, and the out-of-scope tickets already filed.
+3. **Record.** Add both reports as they came to `findings/branch-review.md`, under `## Standards` and `## Spec`. Write the in-scope findings of both, numbered and each with its axis, to `findings/branch-round-1.md`; with none, write no round file. Out-of-scope findings become tickets (*Out-of-scope findings*, from `branch review`). Commit (`ship: branch review findings`).
+4. No in-scope findings: write the brief. Otherwise run fix round 1.
+
+### Fix rounds
+
+Fix round `r` resolves `findings/branch-round-<r>.md`. A ticket's round rules hold, with the findings file in place of the ticket: at most three rounds, the third on Opus, and a verifier finding is never waived.
+
+1. **Build.** Dispatch the implementer as in a ticket's round (*Rounds*, steps 1 and 2), with the spec path and the findings file instead of a ticket. `STATUS: stuck` in round 1 or 2 goes straight to round 3 on Opus as there: end the round file with `## Result` and `round 3`, write `findings/branch-round-3.md` with the findings left and the implementer's note, and commit both (`ship: branch findings round 3`). Stuck for good, as *Rounds* defines it, ends the fix rounds: the findings left are **open**.
+2. **Verify.** Stash leftovers, check the environment and dispatch the verifier as in a ticket's round, with the findings file instead of the ticket and the fix base.
+3. **Re-review.** When the verifier passes, look at only this round's change, against the findings file, on Opus: `mattpocock-skills:standards-reviewer` when the file has Standards findings, `mattpocock-skills:spec-reviewer` with `model: opus` when it has Spec findings, both at once when it has both. Pass each the findings file and the round's base.
+4. **Decide.** The round's result is the in-scope findings of the verifier and the re-review (a finding left unresolved, a fix that broke something, change beyond the findings), plus every finding of the round file that no re-review cleared, all of them when the re-review didn't run; each keeps its axis. Out-of-scope findings become tickets (`ship: branch out-of-scope findings`). Put a protected path the round changed back as *Rounds* says (`ship: branch restore <path>`).
+   - None: end the round file with `## Result` and `resolved`, commit (`ship: branch round <r> resolved`) and write the brief.
+   - After round 1 or 2: end the round file with `## Result` and `round <r+1>`, write the findings to `findings/branch-round-<r+1>.md`, commit both (`ship: branch findings round <r+1>`) and run the next round.
+   - After round 3 they are **open**.
+
+When the fix rounds end with open findings, the branch the user may merge must hold only verified work. If the last round's verifier passed it, keep the code. Otherwise (it failed, or never ran because the implementer was stuck), put the code back to where the last passed round ended, the base of the round after it, or to the fix base when no round passed, keeping the tracker as it is: `git restore --source=<that commit> --staged --worktree -- . ":(exclude).scratch/<feature>"`. In the same commit, end the last round file with `## Result`, `open`, the open findings and the commit the code went back to (`ship: branch round <r> open`). Then write the brief.
+
+### Brief
+
+Write `.scratch/<feature>/brief.md`, short enough to read on a phone. Take its facts from the tracker and from these commands, each run on its own:
+
+- `run-dod.ps1 -Check commands`: copy, as printed, the lines of `passed` that report test results (passed, failed and skipped counts). A red run is the first open item.
+- `get_session` with `"self"`: whether Remote Control is on.
+- With `screenPaths` in `dod.json`: `git diff --name-only <base> HEAD -- <the globs>` lists the changed screens.
+
+Its sections, in this order:
+
+- **Ready:** one line: ready to merge, or what stands in the way (open findings, a red DoD).
+- **Done:** each ticket with its title, rounds and result; the `needs-triage` tickets filed during the work.
+- **Tests:** the summary lines.
+- **Review:** each in-scope finding of the branch review with how its `## Resolution` resolved it, then the open ones.
+- **Uncertain:** what deserves a look although nothing failed: the reviewers' notes, resumed tickets, stashes, pauses.
+- **Screens:** only with `screenPaths`, the changed screen files.
+- **Convention proposals:** the standards reviewer's proposals, each with its rule, why, and the ticket it came from.
+- **Remote Control:** on or off.
+
+Add the branch row and the total row to the metrics, commit them with the brief (`ship: brief`), send a push notification `ship <feature>: ready for gate 2, see .scratch/<feature>/brief.md`, and end the run.
 
 ## Environment failure
 
@@ -128,7 +188,7 @@ A check that won't come up (Docker, say), an unreadable DoD file, a red baseline
 
 ## End of the run
 
-Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, the pauses, and the branch; after a weekly stop, also when the limit resets. Leave the worktree and the branch in place: merging is the user's call.
+Report in a few lines: the tickets done, the tickets set to `needs-info` and why, the new `needs-triage` tickets, the tickets still waiting, the pauses, the branch, whether Remote Control was on, and the brief when there is one; after a weekly stop, also when the limit resets. Leave the worktree and the branch in place: merging is the user's call.
 
 ## Never
 
@@ -136,5 +196,6 @@ Report in a few lines: the tickets done, the tickets set to `needs-info` and why
 - Start a ticket while the usage check says stop, or wait out the weekly window in the session.
 - Waive a finding, or fix a ticket yourself instead of sending it back to the implementer.
 - Push, merge into another branch, or delete a branch or a worktree.
+- Switch Remote Control on or off.
 - Edit a path in `protectedPaths`, the hooks, `dod.json` or the implementer contract. Putting one back from the base, as the rounds describe, is the only write allowed there.
 - Build in the user's checkout instead of the worktree.
