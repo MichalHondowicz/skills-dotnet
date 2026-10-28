@@ -49,10 +49,10 @@ You invoke this by typing `/ship <feature>`, and the agent won't reach for it on
 
 ## Where it fits
 
-`ship` is the build step of the main chain for when you won't be there, as the unattended alternative to running [implement](https://aihero.dev/skills-implement) once per ticket:
+`ship` is the build step of the main chain for when you won't be there, as the unattended alternative to running [implement](https://aihero.dev/skills-implement) once per ticket. [plan-feature](https://aihero.dev/skills-plan-feature) plans what it builds, running the grill, the spec and the tickets in one session and ending with one approval:
 
 ```txt
-grill-with-docs → to-spec → to-tickets → ship → retro
+plan-feature → ship → retro
 ```
 
 ## Common questions

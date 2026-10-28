@@ -1,0 +1,5 @@
+interface:
+  display_name: "Plan Feature"
+  short_description: "Plan a feature in one session: grill, spec and tickets, approved as one package."
+policy:
+  allow_implicit_invocation: false
