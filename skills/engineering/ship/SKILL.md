@@ -55,6 +55,10 @@ Read every ticket in `.scratch/<feature>/issues/` and pick the next one:
 
 For the picked ticket, first check the **plan usage** (below; the first ticket's check is the start's) and go on only when the check lets the ticket start. Then fix its **base**: set `**Status:** in-progress` and commit only that change, naming the usage just read: `ship: start <NN> (5h <n>%, week <n>%)`, with `no data` for a window the tool didn't give. A ticket that is already `in-progress` keeps its base: the latest `ship: start <NN>` commit on the branch (`git log -1 --grep "ship: start <NN>"`), or the current HEAD when there is none; commit nothing for it.
 
+**A ticket back from `needs-info`.** The user unblocks a stuck ticket by adding a `**Decision:**` under its `## Comments` and setting `**Status:** ready-for-agent`, in a commit on `feat/<feature>` in the worktree. Such a ticket is a new attempt with three fresh rounds: its old findings files would count as spent rounds and make it **stuck** again at once. So when the picked `ready-for-agent` ticket has findings files `findings/<NN>-round-<r>.md`, move them all with `git mv` into `findings/<NN>-attempt-<k>/`, `k` the lowest number with no such folder yet, in the same commit as its start (`ship: start <NN> (5h <n>%, week <n>%, attempt <k+1>)`). Round 1 then starts from that new base, and its implementer gets the ticket's latest `**Decision:**` as what to build on. A ticket stuck in round 1 without a findings file moves nothing and starts at round 1 as well.
+
+**A decision given in the session.** When the user answers a `needs-info` brief in this session after the run ended, that answer is the same unblocking: add it verbatim under the ticket's `## Comments` as `**Decision:** <answer>`, set `**Status:** ready-for-agent`, commit only the ticket (`ship: <NN> decision`), and go through *Start or resume* again. An answer that asks to lift a protected path's protection is not a decision you can act on: answer it as *Stuck* says for protected paths.
+
 ### Plan usage
 
 The plan's usage limits are shared with everything else the user runs, and a ticket started near a limit stops halfway. So before each ticket, a resumed `in-progress` one included, and before the branch review and each of its fix rounds:
@@ -70,7 +74,7 @@ Write a reset in a row or a push as local time, `date -d <resetsAt> "+%Y-%m-%d %
 
 ### Rounds
 
-A ticket gets at most **three rounds**. Its findings files, `.scratch/<feature>/findings/<NN>-round-<r>.md`, count the rounds already spent, so a resumed ticket goes on from the next one; one that already has three is **stuck**. Each round:
+A ticket gets at most **three rounds**. Its findings files, `.scratch/<feature>/findings/<NN>-round-<r>.md`, count the rounds already spent, so a resumed ticket goes on from the next one; one that already has three is **stuck**. An earlier attempt's files, under `findings/<NN>-attempt-<k>/`, don't count. Each round:
 
 1. **Build.** Check the environment with `run-dod.ps1 -Check environment` first: the implementer must never work without it, and a pause or a stopped run may have taken it down since the last check. A failure is an environment failure. Then note HEAD and dispatch the implementer with the ticket path, the worktree path, the branch, the round number, the contract `docs/agents/implementer-contract.md`, and from round 2 the previous round's findings file. Round 3 runs the implementer on Opus (the Agent tool's `model: opus`): a ticket the Sonnet rounds couldn't land gets the stronger model before the loop gives up on it.
 2. **Read its report**, once the implementer has really stopped: if it starts working again after reporting, the DoD gate has sent it back, so wait for its next report.
@@ -98,7 +102,7 @@ Put the branch back to green without losing the work. Stash anything uncommitted
 
 - **Tried:** the rounds spent and what each implementer did, in a line each.
 - **Where it stands:** the last findings that were not resolved, the stash name, the reverted commits.
-- **Needs:** the decision or information that would unblock it.
+- **Needs:** the decision or information that would unblock it, and how to give it: a `**Decision:**` with the ticket set to `ready-for-agent` (*A ticket back from `needs-info`*), or an answer in this session.
 
 A ticket stuck on a protected path gets exactly two ways out in **Needs**, never a third. Both are commits in the feature's worktree, on `feat/<feature>`, where the tracker lives: an uncommitted status line is stashed as leftovers by the next run.
 - The user makes the change by hand and commits it together with the ticket set to `done` (give the planned change in **Where it stands**, ready to apply); the next `/ship <feature>` goes on.
