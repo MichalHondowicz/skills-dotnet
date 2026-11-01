@@ -194,7 +194,7 @@ Its sections, in this order:
 - **Review:** each in-scope finding of the branch review with how its `## Resolution` resolved it, then the open ones.
 - **Uncertain:** what deserves a look although nothing failed: the reviewers' notes, resumed tickets, stashes, pauses.
 - **Screens:** only with `screenPaths`, the changed screen files.
-- **Convention proposals:** the standards reviewer's proposals, numbered, each with its target file, its rule quoted exactly as the reviewer wrote it (in the target file's language, which may differ from the brief's), why, and the ticket it came from.
+- **Convention proposals:** the standards reviewer's proposals, numbered, each with its target file, its rule quoted exactly as the reviewer wrote it (in the target file's language, which may differ from the brief's), why, the files that already break it once merged (or that none do), and the ticket it came from. A proposal that the merged code breaks says so on its first line, so the user sees it before answering.
 - **Remote Control:** on or off.
 - **Gate 2:** the question *Gate 2* asks, with an example answer.
 
