@@ -101,4 +101,6 @@ If step 3, 4 or 5 fails (a hook, a missing identity, a file left over), stop and
 
 Give the exact command that builds the feature, `/ship <feature>` (as a Claude Code plugin, `/mattpocock-skills:ship <feature>`), and how to run it: a new session, on Sonnet with effort `medium`, in auto mode, with Remote Control on so its gate 2 can reach the user's phone.
 
+Name nothing else to prepare. `/ship` checks the environment itself and starts what the definition of done can start (`environmentChecks` with a `start` command in `docs/agents/dod.json`), so don't tell the user to start Docker or any other such service: a service the user starts by hand hides whether the loop can start it. For Remote Control, say that the session needs it on. The Claude desktop app connects a new session by itself when its setting "Connect new sessions to Remote Control" is on, so ask the user to check the session's Remote Control badge, not to switch it on.
+
 Where the harness has a tool that proposes a new session the user starts (in the Claude desktop app, `start_session` with `initiation: "own_initiative"`), also offer the run that way, with the model set to Sonnet where the tool takes one. Keep the exact command in your message either way: the user may start the session by hand. Never start `/ship` yourself: building starts only when the user says so.
