@@ -100,6 +100,8 @@ Put the branch back to green without losing the work. Stash anything uncommitted
 - **Where it stands:** the last findings that were not resolved, the stash name, the reverted commits.
 - **Needs:** the decision or information that would unblock it.
 
+A ticket stuck on a protected path gets exactly two ways out in **Needs**, never a third: the user makes the change by hand in the feature's worktree, commits it and sets the ticket `done` (give the planned change in **Where it stands**, ready to apply), so the next `/ship <feature>` goes on; or the ticket is `wontfix` and the change waits outside this feature. Never offer to lift the protection or to let the loop change the path: the repository's own tests may pin the path to its guard, and the verifier's diff check flags the change anyway.
+
 Add the ticket's metrics row, commit (`ship: <NN> needs-info`) and send a push notification (the harness's push-notification tool, if it has one): `ship <feature>: ticket <NN> needs info, see its Comments`. Tickets that depend on it now wait; the others go on.
 
 ### Out-of-scope findings
