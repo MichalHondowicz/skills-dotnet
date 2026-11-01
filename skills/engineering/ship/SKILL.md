@@ -100,7 +100,11 @@ Put the branch back to green without losing the work. Stash anything uncommitted
 - **Where it stands:** the last findings that were not resolved, the stash name, the reverted commits.
 - **Needs:** the decision or information that would unblock it.
 
-A ticket stuck on a protected path gets exactly two ways out in **Needs**, never a third: the user makes the change by hand in the feature's worktree, commits it and sets the ticket `done` (give the planned change in **Where it stands**, ready to apply), so the next `/ship <feature>` goes on; or the ticket is `wontfix` and the change waits outside this feature. Never offer to lift the protection or to let the loop change the path: the repository's own tests may pin the path to its guard, and the verifier's diff check flags the change anyway.
+A ticket stuck on a protected path gets exactly two ways out in **Needs**, never a third. Both are commits in the feature's worktree, on `feat/<feature>`, where the tracker lives: an uncommitted status line is stashed as leftovers by the next run.
+- The user makes the change by hand and commits it together with the ticket set to `done` (give the planned change in **Where it stands**, ready to apply); the next `/ship <feature>` goes on.
+- The user commits the ticket set to `wontfix`, and the change waits outside this feature. A ticket whose `Blocked by` names it is never picked until the user drops that blocker in the same commit, so name such tickets in **Needs**.
+
+Never offer to lift the protection or to let the loop change the path: the repository's own tests may pin the path to its guard, and the verifier's diff check flags the change anyway. When the user asks for it in the session, say so and name the two ways instead of doing it.
 
 Add the ticket's metrics row, commit (`ship: <NN> needs-info`) and send a push notification (the harness's push-notification tool, if it has one): `ship <feature>: ticket <NN> needs info, see its Comments`. Tickets that depend on it now wait; the others go on.
 
