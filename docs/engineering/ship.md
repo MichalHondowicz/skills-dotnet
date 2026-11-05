@@ -18,7 +18,7 @@ Then `ship` writes `brief.md` next to the tickets: whether the branch is ready, 
 
 The brief ends with one question, and the session waits for your answer: the only question `ship` ever asks. You answer in one message, at the computer or through Remote Control on your phone: `OK` to merge or a no, plus a yes or no for each convention proposal (`OK, 1 yes, 2 no`). Only an unambiguous `OK` merges. A question or anything unclear gets an answer and the question again; a proposal you don't mention stays open for next time.
 
-`ship` records your answer in the brief and writes each accepted convention into the file the reviewer named, word for word, in a commit of its own on the feature branch. On `OK` it then fast-forwards `main` without touching your checkout's files (it stops if `main` moved, if your checkout is on `main` with uncommitted work, or if the push fails), runs `git push origin main`, removes the feature's worktree and branch, and watches the CI run for that push in the app's browser for up to twenty minutes. A red CI sends a notification; nothing is reverted.
+`ship` records your answer in the brief and writes each accepted convention into the file the reviewer named, word for word, in a commit of its own on the feature branch. On `OK` it then fast-forwards `main` without touching your checkout's files (it stops if `main` moved, if your checkout is on `main` with uncommitted work, or if the push fails), runs `git push origin main`, removes the feature's worktree and branch, and watches the CI run for that push in the app's browser for up to twenty minutes. A red CI sends a notification; nothing is reverted. In a project with no `origin` remote it merges into the local `main` only: no push and no CI check, and it still removes the worktree and branch.
 
 ## Usage limits
 
@@ -79,5 +79,5 @@ A ticket that two rounds and a stronger third couldn't land is rarely one more r
 - No permission prompt or question is waiting in the session.
 - `metrics.md` has a row for every finished ticket, a row for every pause, a row for the branch review, and a total once nothing is left to do.
 - A finished feature ends with `brief.md`, a notification pointing at it, and the branch review's findings either resolved or listed as open.
-- After your `OK`, `main` on the remote holds the feature, the worktree and branch are gone, and the report names the CI result.
+- After your `OK`, `main` on the remote holds the feature (the local `main`, in a project with no remote), the worktree and branch are gone, and the report names the CI result.
 - Running `/ship <feature>` again on a merged feature only finishes what the merge left undone (the push, the cleanup, the CI check) and says so.
