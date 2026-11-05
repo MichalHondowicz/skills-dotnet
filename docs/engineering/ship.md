@@ -69,6 +69,9 @@ A convention binds every later feature, so it changes only by your decision, not
 **Why doesn't it turn Remote Control on itself?**
 The app lets a session switch it only when you ask, and refuses it to sessions running unattended. Turn on "Connect new sessions to Remote Control" in the app's settings once, and every `/ship` session starts connected.
 
+**What happens to the `needs-triage` tickets after the merge?**
+They stay in the merged feature's folder until you run [triage](https://aihero.dev/skills-triage) on them. A merged feature is closed to `ship`: `/ship <feature>` on it only names the tickets still open and where each goes. Build one that triage made `ready-for-agent` with [implement](https://aihero.dev/skills-implement), or plan a batch of them as a new feature with [plan-feature](https://aihero.dev/skills-plan-feature).
+
 **Why three rounds and not until it works?**
 A ticket that two rounds and a stronger third couldn't land is rarely one more round away; it is usually missing a decision only you can make. Every extra round spends the usage limit the rest of the feature needs.
 
@@ -80,4 +83,4 @@ A ticket that two rounds and a stronger third couldn't land is rarely one more r
 - `metrics.md` has a row for every finished ticket, a row for every pause, a row for the branch review, and a total once nothing is left to do.
 - A finished feature ends with `brief.md`, a notification pointing at it, and the branch review's findings either resolved or listed as open.
 - After your `OK`, `main` on the remote holds the feature (the local `main`, in a project with no remote), the worktree and branch are gone, and the report names the CI result.
-- Running `/ship <feature>` again on a merged feature only finishes what the merge left undone (the push, the cleanup, the CI check) and says so.
+- Running `/ship <feature>` again on a merged feature only finishes what the merge left undone (the push, the cleanup, the CI check) and says so, naming the tickets still open and where each goes.
