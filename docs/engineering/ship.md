@@ -70,7 +70,7 @@ A convention binds every later feature, so it changes only by your decision, not
 The app lets a session switch it only when you ask, and refuses it to sessions running unattended. Turn on "Connect new sessions to Remote Control" in the app's settings once, and every `/ship` session starts connected.
 
 **What happens to the `needs-triage` tickets after the merge?**
-They stay in the merged feature's folder until you run [triage](https://aihero.dev/skills-triage) on them. A merged feature is closed to `ship`: `/ship <feature>` on it only names the tickets still open and where each goes. Build one that triage made `ready-for-agent` with [implement](https://aihero.dev/skills-implement), or plan a batch of them as a new feature with [plan-feature](https://aihero.dev/skills-plan-feature).
+They stay in the merged feature's folder until you run [triage](https://aihero.dev/skills-triage) on them. A merged feature is closed to `ship`: the report after the merge, and any later `/ship <feature>`, only name the tickets still open and where each goes. Build one that triage made `ready-for-agent` with [implement](https://aihero.dev/skills-implement), or plan a batch of them as a new feature with [plan-feature](https://aihero.dev/skills-plan-feature).
 
 **Why three rounds and not until it works?**
 A ticket that two rounds and a stronger third couldn't land is rarely one more round away; it is usually missing a decision only you can make. Every extra round spends the usage limit the rest of the feature needs.
