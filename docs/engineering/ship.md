@@ -22,7 +22,7 @@ The brief ends with one question, and the session waits for your answer: the onl
 
 ## Usage limits
 
-Before each ticket `ship` reads the plan's usage and compares it with the thresholds in the definition of done. It never starts a ticket at or above them, so a ticket doesn't stop halfway and some of the limit is left for you. When the five-hour window is full, it waits in the same session until the window resets, with a script holding the computer awake, and goes on by itself; you get no notification. When the weekly limit is full, it ends the run and sends one notification with the reset time, and you start `/ship` again after it.
+Before each ticket `ship` reads the plan's usage and compares it with the thresholds in the definition of done. It never starts a ticket at or above them, so a ticket doesn't stop halfway and some of the limit is left for you. When the five-hour window is full, it waits in the same session until the window resets, with a script holding the computer awake, and goes on by itself; you get no notification. A restart of the app or the computer ends that wait: when the session is told its wait was cut off, it resumes from the tracker instead of stopping, and if the app gives it no turn for that, any message from you in the session does the same. When the weekly limit is full, it ends the run and sends one notification with the reset time, and you start `/ship` again after it.
 
 Every ticket leaves a row in `metrics.md` next to the tickets: the usage of both windows at its start and end, the rounds, the model of each role, the time and the result. The run ends with a total, so how much of the limit a feature costs is a number, not a guess.
 
