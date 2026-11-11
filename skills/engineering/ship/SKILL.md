@@ -188,7 +188,7 @@ When the fix rounds end with open findings, the branch the user may merge must h
 Write `.scratch/<feature>/brief.md`, short enough to read on a phone. Take its facts from the tracker and from these commands, each run on its own:
 
 - `run-dod.ps1 -Check commands`: copy, as printed, the lines of `passed` that report test results (passed, failed and skipped counts). A red run is the first open item.
-- With `smoke` in `dod.json`: `run-dod.ps1 -Check smoke`, after the commands passed. It runs the built application, which no ticket's round did. A red run is an open item, with the failed command and its last lines; nothing goes back to the implementer for it, the user decides at gate 2. Exit 2 is an environment failure.
+- With `smoke` in `dod.json`: `run-dod.ps1 -Check smoke`, after the commands passed. It runs the built application, which no ticket's round did. A red run is an open item, with the failed command and its last lines; nothing goes back to the implementer for it, the user decides at gate 2. Exit 2 is an environment failure. A passed command can leave a screenshot for the user: each line of its `passed` output of the form `screenshot: <path>`, with a path relative to the repository root, names one. It belongs in the brief when the file exists inside `.scratch/<feature>/`; a path elsewhere or a missing file goes under **Uncertain** instead, with the line as printed.
 - `check-diff.ps1 -Base <the branch's base>`, over the whole branch. Each ticket's rounds checked only that ticket's commits, so a violation here is one no round saw: a commit the user made on the branch by hand, or a write of your own between rounds. For each one, name the commit that made it (`git log -1 --format="%h %s" <base>..HEAD -- <path>`). Exit 2 is an environment failure.
 - `get_session` with `"self"`: whether Remote Control is on.
 - With `screenPaths` in `dod.json`: `git diff --name-only <base> HEAD -- <the globs>` lists the changed screens.
@@ -198,7 +198,7 @@ Its sections, in this order:
 - **Ready:** one line: ready to merge, or what stands in the way (open findings, a red DoD, a red smoke run, a violation in the branch's diff check).
 - **Done:** each ticket with its title, rounds and result; the `needs-triage` tickets filed during the work.
 - **Tests:** the summary lines.
-- **Smoke:** only with `smoke`: each command as passed or failed, a failed one with its last lines.
+- **Smoke:** only with `smoke`: each command as passed or failed, a failed one with its last lines, a passed one with each screenshot it left as an image link relative to `brief.md` (`![<command name>](smoke/login.png)`), so it shows inline where the brief is read.
 - **Branch diff:** `clean`, or each violation of the branch's diff check with its kind, path and the commit that made it. The loop never judges these: a change the user committed by hand is theirs to recognise, and merging confirms it.
 - **Review:** each in-scope finding of the branch review with how its `## Resolution` resolved it, then the open ones.
 - **Uncertain:** what deserves a look although nothing failed: the reviewers' notes, resumed tickets, stashes, pauses.
@@ -208,7 +208,7 @@ Its sections, in this order:
 - **Check before OK:** what the loop could not run and the user should see working before answering, as a short list of things to do, each with where to look: every changed screen on a device (with `screenPaths`), each behaviour **Uncertain** names as never run, and, when the project has no `smoke`, that the application itself was never started. `nothing` when the tests and the smoke run cover the change.
 - **Gate 2:** the question *Gate 2* asks, with an example answer.
 
-Add the branch row and the total row to the metrics, commit them with the brief (`ship: brief`), send a push notification `ship <feature>: ready for gate 2, see .scratch/<feature>/brief.md`, and go to *Gate 2*.
+Add the branch row and the total row to the metrics, commit them with the brief and the screenshots it links (`ship: brief`), send a push notification `ship <feature>: ready for gate 2, see .scratch/<feature>/brief.md`, and go to *Gate 2*.
 
 ## Gate 2
 
